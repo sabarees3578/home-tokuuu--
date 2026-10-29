@@ -1,0 +1,45 @@
+version: '3.9'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: home-security-system
+    restart: unless-stopped
+    ports:
+      - "5000:5000"    # REST API & Frontend
+      - "1883:1883"    # MQTT TCP (for ESP32 devices)
+      - "9001:9001"    # MQTT WebSocket (for browser clients)
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      # ── Database ───────────────────────────────────────────────────────────
+      # Using bundled SQLite (dev.db is copied into the image)
+      # To use PostgreSQL instead, uncomment the DATABASE_URL below
+      # and update it to point to your PostgreSQL instance
+      DATABASE_URL: "file:./prisma/dev.db"
+      # DATABASE_URL: "postgresql://user:password@db:5432/security_db"
+      # ── MQTT ───────────────────────────────────────────────────────────────
+      MQTT_HOST: "0.0.0.0"
+      MQTT_INTERNAL_HOST: "localhost"
+      # ── Auth ───────────────────────────────────────────────────────────────
+      JWT_SECRET: "34fbe4f6df410dd9fb7c23f9a9b3ec406a93a6510a3912b277844b39ca19db1fecc0cafd1dfe68c979dd7821ad1ecbad"
+      # ── OTA ────────────────────────────────────────────────────────────────
+      OTA_PUBLIC_BASE: "http://localhost:5000"
+    volumes:
+      # Persist database & firmware uploads outside the container
+      - db_data:/app/backend/prisma
+      - uploads_data:/app/backend/uploads
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  db_data:
+    driver: local
+  uploads_data:
+    driver: local
